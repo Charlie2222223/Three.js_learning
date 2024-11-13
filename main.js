@@ -2,26 +2,40 @@
 let scene, camera, renderer, spheres = [], rotationSpeeds = [], movementSpeeds = [];
 const boundary = {
   x: { min: -10, max: 10 },
-  y: { min: -0.5, max: 10 }, // 床に接触しないように y.min を -0.5 に変更
+  y: { min: 0, max: 10 }, // 無重力のためy.minを調整
   z: { min: -10, max: 10 }
 };
-
-// 重力の設定
-const gravity = -0.001;
 
 // Raycasterとマウスベクトルの初期化
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// テクスチャローダーの初期化
+// テクスチャローダーとフォントローダーの初期化
 const textureLoader = new THREE.TextureLoader();
+const fontLoader = new THREE.FontLoader();
 
 // ロードする画像のURL（必要に応じて変更してください）
 const textureURL = 'img/sample.jpg'; // 例: 外部URL
-// const textureURL = './textures/image.jpg'; // 例: ローカルパス
 
 // テクスチャのロード
-const sphereTexture = textureLoader.load(textureURL);
+const sphereTexture = textureLoader.load(
+  textureURL,
+  () => { console.log('テクスチャが正常にロードされました。'); },
+  undefined,
+  (err) => { console.error('テクスチャのロードに失敗しました:', err); }
+);
+
+// フォントのロード
+fontLoader.load(
+  './fonts/helvetiker_regular.typeface.json', // フォントファイルのパス
+  function (font) {
+    createTextForSpheres(font);
+  },
+  undefined,
+  function (err) {
+    console.error('フォントのロードに失敗しました:', err);
+  }
+);
 
 // 初期化関数
 function init() {
@@ -69,7 +83,7 @@ function init() {
   const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x808080, side: THREE.DoubleSide });
   const plane = new THREE.Mesh(planeGeometry, planeMaterial);
   plane.rotation.x = -Math.PI / 2; // 水平に配置
-  plane.position.y = -2; // 球体の下に配置
+  plane.position.y = 0; // 床の位置をy=0に設定
   plane.receiveShadow = true; // シャドウを受け取る
   scene.add(plane);
 
@@ -103,13 +117,13 @@ function init() {
     // 各球体にランダムな移動速度を設定
     movementSpeeds.push({
       x: (Math.random() - 0.5) * 0.05, // -0.025 から 0.025 の範囲
-      y: 0, // 初期y速度は0（重力を適用）
+      y: (Math.random() - 0.5) * 0.05, // 重力を無効化するために初期Y速度もランダムに設定
       z: (Math.random() - 0.5) * 0.05
     });
   }
 
   // カメラの位置を設定
-  camera.position.z = 15; /* カメラの位置を手前に変更 */
+  camera.position.set(0, 5, 15); // 少し上から全体を見渡せる位置に設定
 }
 
 // アニメーション制御関数
@@ -121,8 +135,8 @@ function animate() {
     sphere.rotation.x += rotationSpeeds[index].x;
     sphere.rotation.y += rotationSpeeds[index].y;
     
-    // 重力の適用
-    movementSpeeds[index].y += gravity;
+    // 重力の適用を削除
+    // movementSpeeds[index].y += gravity;
     
     // 位置の更新
     sphere.position.x += movementSpeeds[index].x;
@@ -136,13 +150,13 @@ function animate() {
       sphere.position.x = THREE.MathUtils.clamp(sphere.position.x, boundary.x.min, boundary.x.max);
     }
     // Y軸（床との衝突）
-    if (sphere.position.y - 1.5 <= -2) { // 床のy位置が-2で球体の半径が1.5
+    if (sphere.position.y - 1.5 <= boundary.y.min) { // 床のy位置が0で球体の半径が1.5
       movementSpeeds[index].y *= -0.7; // 反射後の速度を減衰（エネルギー損失）
-      sphere.position.y = -2 + 1.5; // 床に球体が食い込まないように調整
+      sphere.position.y = boundary.y.min + 1.5; // 床に球体が食い込まないように調整
     }
-    if (sphere.position.y >= boundary.y.max) {
+    if (sphere.position.y + 1.5 >= boundary.y.max) {
       movementSpeeds[index].y *= -1;
-      sphere.position.y = boundary.y.max;
+      sphere.position.y = boundary.y.max - 1.5;
     }
     // Z軸
     if (sphere.position.z <= boundary.z.min || sphere.position.z >= boundary.z.max) {
@@ -202,6 +216,39 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// 球体に文字を追加する関数
+function createTextForSpheres(font) {
+  spheres.forEach((sphere, index) => {
+    const text = `Sphere ${index + 1}`;
+    const textGeometry = new THREE.TextGeometry(text, {
+      font: font,
+      size: 0.5,
+      height: 0.1,
+      curveSegments: 12,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.05,
+      bevelOffset: 0,
+      bevelSegments: 5
+    });
+
+    const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+
+    // テキストの中心を原点にする
+    textGeometry.computeBoundingBox();
+    const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+    textMesh.position.set(centerOffset, 2, 0);
+
+    // 球体の位置にテキストを配置
+    const textGroup = new THREE.Group();
+    textGroup.add(textMesh);
+    textGroup.position.copy(sphere.position);
+
+    scene.add(textGroup);
+  });
+}
+
 // クリックイベントハンドラー
 function onClick(event) {
   // マウス座標を正規化（-1から+1の範囲）
@@ -216,9 +263,6 @@ function onClick(event) {
   if (intersects.length > 0) {
     const clickedSphere = intersects[0].object;
     
-    // 球体の色をランダムに変更（テクスチャ適用後は不要ならコメントアウト）
-    // clickedSphere.material.color.set(Math.random() * 0xffffff);
-
     // テクスチャを適用
     clickedSphere.material.map = sphereTexture;
     clickedSphere.material.needsUpdate = true;
