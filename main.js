@@ -2,13 +2,26 @@
 let scene, camera, renderer, spheres = [], rotationSpeeds = [], movementSpeeds = [];
 const boundary = {
   x: { min: -10, max: 10 },
-  y: { min: -2, max: 10 },
+  y: { min: -0.5, max: 10 }, // 床に接触しないように y.min を -0.5 に変更
   z: { min: -10, max: 10 }
 };
+
+// 重力の設定
+const gravity = -0.001;
 
 // Raycasterとマウスベクトルの初期化
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+
+// テクスチャローダーの初期化
+const textureLoader = new THREE.TextureLoader();
+
+// ロードする画像のURL（必要に応じて変更してください）
+const textureURL = 'img/sample.jpg'; // 例: 外部URL
+// const textureURL = './textures/image.jpg'; // 例: ローカルパス
+
+// テクスチャのロード
+const sphereTexture = textureLoader.load(textureURL);
 
 // 初期化関数
 function init() {
@@ -66,11 +79,11 @@ function init() {
   for (let i = 0; i < 5; i++) {
     // ランダムな色のマテリアルを作成
     const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
-    const sphere = new THREE.Mesh(geometry, material);
+    const sphere = new THREE.Mesh(geometry, material);    
     
-    // ランダムな位置に配置
+    // ランダムな位置に配置（床に食い込まないように y を調整）
     sphere.position.x = Math.random() * 10 - 5;
-    sphere.position.y = Math.random() * 2;
+    sphere.position.y = Math.random() * 8 + 1.5; // 床から少し上（例：1.5 から 9.5）
     sphere.position.z = Math.random() * 10 - 5;
     
     // シャドウの設定
@@ -90,7 +103,7 @@ function init() {
     // 各球体にランダムな移動速度を設定
     movementSpeeds.push({
       x: (Math.random() - 0.5) * 0.05, // -0.025 から 0.025 の範囲
-      y: (Math.random() - 0.5) * 0.05,
+      y: 0, // 初期y速度は0（重力を適用）
       z: (Math.random() - 0.5) * 0.05
     });
   }
@@ -108,6 +121,9 @@ function animate() {
     sphere.rotation.x += rotationSpeeds[index].x;
     sphere.rotation.y += rotationSpeeds[index].y;
     
+    // 重力の適用
+    movementSpeeds[index].y += gravity;
+    
     // 位置の更新
     sphere.position.x += movementSpeeds[index].x;
     sphere.position.y += movementSpeeds[index].y;
@@ -119,10 +135,14 @@ function animate() {
       movementSpeeds[index].x *= -1;
       sphere.position.x = THREE.MathUtils.clamp(sphere.position.x, boundary.x.min, boundary.x.max);
     }
-    // Y軸
-    if (sphere.position.y <= boundary.y.min || sphere.position.y >= boundary.y.max) {
+    // Y軸（床との衝突）
+    if (sphere.position.y - 1.5 <= -2) { // 床のy位置が-2で球体の半径が1.5
+      movementSpeeds[index].y *= -0.7; // 反射後の速度を減衰（エネルギー損失）
+      sphere.position.y = -2 + 1.5; // 床に球体が食い込まないように調整
+    }
+    if (sphere.position.y >= boundary.y.max) {
       movementSpeeds[index].y *= -1;
-      sphere.position.y = THREE.MathUtils.clamp(sphere.position.y, boundary.y.min, boundary.y.max);
+      sphere.position.y = boundary.y.max;
     }
     // Z軸
     if (sphere.position.z <= boundary.z.min || sphere.position.z >= boundary.z.max) {
@@ -130,6 +150,47 @@ function animate() {
       sphere.position.z = THREE.MathUtils.clamp(sphere.position.z, boundary.z.min, boundary.z.max);
     }
   });
+
+  // 球体同士の衝突検出と反応
+  for (let i = 0; i < spheres.length; i++) {
+    for (let j = i + 1; j < spheres.length; j++) {
+      const sphere1 = spheres[i];
+      const sphere2 = spheres[j];
+      
+      const distance = sphere1.position.distanceTo(sphere2.position);
+      const minDistance = 3; // 1.5 + 1.5 (各球体の半径)
+      
+      if (distance < minDistance) {
+        // 衝突が発生した場合
+
+        // 衝突方向の正規化ベクトル
+        const collisionNormal = new THREE.Vector3().subVectors(sphere2.position, sphere1.position).normalize();
+        
+        // 各球体の速度ベクトル
+        const v1 = new THREE.Vector3(movementSpeeds[i].x, movementSpeeds[i].y, movementSpeeds[i].z);
+        const v2 = new THREE.Vector3(movementSpeeds[j].x, movementSpeeds[j].y, movementSpeeds[j].z);
+        
+        // 衝突方向に沿った速度の成分を計算
+        const v1Proj = collisionNormal.clone().multiplyScalar(v1.dot(collisionNormal));
+        const v2Proj = collisionNormal.clone().multiplyScalar(v2.dot(collisionNormal));
+        
+        // 速度の交換（完全弾性衝突を仮定）
+        movementSpeeds[i].x = v2Proj.x - (v1.clone().sub(v1Proj)).x;
+        movementSpeeds[i].y = v2Proj.y - (v1.clone().sub(v1Proj)).y;
+        movementSpeeds[i].z = v2Proj.z - (v1.clone().sub(v1Proj)).z;
+        
+        movementSpeeds[j].x = v1Proj.x - (v2.clone().sub(v2Proj)).x;
+        movementSpeeds[j].y = v1Proj.y - (v2.clone().sub(v2Proj)).y;
+        movementSpeeds[j].z = v1Proj.z - (v2.clone().sub(v2Proj)).z;
+        
+        // 重なりを解消するために位置を調整
+        const overlap = minDistance - distance;
+        const adjustment = collisionNormal.clone().multiplyScalar(overlap / 2);
+        sphere1.position.sub(adjustment);
+        sphere2.position.add(adjustment);
+      }
+    }
+  }
 
   renderer.render(scene, camera);
 }
@@ -155,8 +216,12 @@ function onClick(event) {
   if (intersects.length > 0) {
     const clickedSphere = intersects[0].object;
     
-    // 球体の色をランダムに変更
-    clickedSphere.material.color.set(Math.random() * 0xffffff);
+    // 球体の色をランダムに変更（テクスチャ適用後は不要ならコメントアウト）
+    // clickedSphere.material.color.set(Math.random() * 0xffffff);
+
+    // テクスチャを適用
+    clickedSphere.material.map = sphereTexture;
+    clickedSphere.material.needsUpdate = true;
 
     // 例：スケールを一時的に変更（拡大）
     clickedSphere.scale.set(2, 2, 2);
