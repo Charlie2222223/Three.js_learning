@@ -219,7 +219,7 @@ function onWindowResize() {
 // 球体に文字を追加する関数
 function createTextForSpheres(font) {
   spheres.forEach((sphere, index) => {
-    const text = `Sphere ${index + 1}`;
+    const text = `Sample ${index + 1}`;
     const textGeometry = new THREE.TextGeometry(text, {
       font: font,
       size: 0.5,
