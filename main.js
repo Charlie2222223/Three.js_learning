@@ -238,14 +238,10 @@ function createTextForSpheres(font) {
     // テキストの中心を原点にする
     textGeometry.computeBoundingBox();
     const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-    textMesh.position.set(centerOffset, 2, 0);
+    textMesh.position.set(centerOffset, 2, 0); // y軸方向に少し上に配置
 
-    // 球体の位置にテキストを配置
-    const textGroup = new THREE.Group();
-    textGroup.add(textMesh);
-    textGroup.position.copy(sphere.position);
-
-    scene.add(textGroup);
+    // テキストを球体の子として追加
+    sphere.add(textMesh);
   });
 }
 
