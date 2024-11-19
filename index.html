@@ -1,19 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Three.js</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
-      integrity="sha512-dLxUelApnYxpLt6K2iomGngnHO83iUvZytA3YjDUCjT0HDOHKXnVYdf3hU4JjM8uEhxf9nD1/ey98U3t2vZ0qQ=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
-    <script src="main.js"></script>
-  </body>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Three.js 地球と月のシーン</title>
+    <style>
+        body { margin: 0; }
+        #three { width: 100vw; height: 100vh; display: block; }
+    </style>
+    <!-- 空のファビコンを設定（任意） -->
+    <link rel="icon" href="data:,">
+    <!-- Import Map の追加 -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "./libs/three.module.js"
+      }
+    }
+    </script>
+</head>
+<body>
+    <!-- Three.jsを表示するためのコンテナ -->
+    <div id="three"></div>
+
+    <!-- モジュールとして main.js を読み込む -->
+    <script type="module" src="js/main.js"></script>
+</body>
 </html>
