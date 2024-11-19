@@ -11,19 +11,20 @@ const W_RATIO = window.devicePixelRatio;
 // 変数宣言
 let camera, scene, renderer, controls;
 let sun, mercury, venus, earth, moon, mars, jupiter, saturn, uranus, neptune, pluto;
+let currentTarget = null; // 現在追尾中の惑星
 
 // 各惑星の周回半径と角度（公転速度も調整）
 const orbits = {
-  mercury: { radius: 200, radian: 0, speed: 0.04 },
-  venus: { radius: 250, radian: 0, speed: 0.03 },
-  earth: { radius: 300, radian: 0, speed: 0.02 },
-  moon: { radius: 20, radian: 0, speed: 0.1 },
-  mars: { radius: 350, radian: 0, speed: 0.015 },
-  jupiter: { radius: 450, radian: 0, speed: 0.01 },
-  saturn: { radius: 500, radian: 0, speed: 0.008 },
-  uranus: { radius: 550, radian: 0, speed: 0.007 },
-  neptune: { radius: 600, radian: 0, speed: 0.006 },
-  pluto: { radius: 650, radian: 0, speed: 0.005 },
+  mercury: { name: 'mercury', radius: 200, radian: 0, speed: 0.04 },
+  venus: { name: 'venus', radius: 250, radian: 0, speed: 0.03 },
+  earth: { name: 'earth', radius: 300, radian: 0, speed: 0.02 },
+  moon: { name: 'moon', radius: 20, radian: 0, speed: 0.1 },
+  mars: { name: 'mars', radius: 350, radian: 0, speed: 0.015 },
+  jupiter: { name: 'jupiter', radius: 450, radian: 0, speed: 0.01 },
+  saturn: { name: 'saturn', radius: 500, radian: 0, speed: 0.008 },
+  uranus: { name: 'uranus', radius: 550, radian: 0, speed: 0.007 },
+  neptune: { name: 'neptune', radius: 600, radian: 0, speed: 0.006 },
+  pluto: { name: 'pluto', radius: 650, radian: 0, speed: 0.005 },
 };
 
 // 初期化関数
@@ -83,8 +84,65 @@ function init() {
   controls.enableDamping = true;
   controls.dampingFactor = 0.05;
 
+  // UIボタンを作成
+  createUI();
+
   // ウィンドウリサイズ時の処理
   window.addEventListener('resize', onWindowResize, false);
+}
+
+// 惑星を後ろから追尾する関数
+function followPlanet(planet, orbit, distance = 50) {
+  if (!planet || !orbit) return;
+
+  // 惑星の現在の位置
+  const planetPosition = planet.position;
+
+  // 公転角度を基に後方の位置を計算
+  const offsetX = -Math.cos(orbit.radian) * distance;
+  const offsetZ = -Math.sin(orbit.radian) * distance;
+
+  // カメラの位置を惑星の後ろに設定
+  camera.position.set(
+    planetPosition.x + offsetX,
+    planetPosition.y + distance * 0.5, // 少し上から見るように
+    planetPosition.z + offsetZ
+  );
+
+  // カメラが惑星を注視する
+  camera.lookAt(planetPosition);
+}
+
+// UIボタンを作成する関数
+function createUI() {
+  const uiContainer = document.createElement('div');
+  uiContainer.style.position = 'absolute';
+  uiContainer.style.top = '10px';
+  uiContainer.style.left = '10px';
+
+  const planets = [
+    { name: '水星', object: mercury },
+    { name: '金星', object: venus },
+    { name: '地球', object: earth },
+    { name: '火星', object: mars },
+    { name: '木星', object: jupiter },
+    { name: '土星', object: saturn },
+    { name: '天王星', object: uranus },
+    { name: '海王星', object: neptune },
+    { name: '冥王星', object: pluto },
+  ];
+
+  planets.forEach((planet) => {
+    const button = document.createElement('button');
+    button.textContent = planet.name;
+    button.style.margin = '5px';
+    button.onclick = () => {
+      currentTarget = planet.object; // 追尾対象を変更
+    };
+    uiContainer.appendChild(button);
+  });
+
+  document.body.appendChild(uiContainer);
 }
 
 // アニメーションループ
@@ -92,31 +150,24 @@ function animate() {
   requestAnimationFrame(animate);
 
   // 公転処理
-  updateOrbit(mercury, 'mercury');
-  updateOrbit(venus, 'venus');
-  updateOrbit(earth, 'earth');
-  updateOrbit(mars, 'mars');
-  updateOrbit(jupiter, 'jupiter');
-  updateOrbit(saturn, 'saturn');
-  updateOrbit(uranus, 'uranus');
-  updateOrbit(neptune, 'neptune');
-  updateOrbit(pluto, 'pluto');
+  Object.keys(orbits).forEach((key) => {
+    const orbit = orbits[key];
+    orbit.radian += orbit.speed;
+    const planet = eval(key); // 文字列から変数を取得
+    if (planet) {
+      planet.position.x = orbit.radius * Math.cos(orbit.radian);
+      planet.position.z = orbit.radius * Math.sin(orbit.radian);
+    }
+  });
 
-  // 月の公転処理（地球の周り）
-  orbits.moon.radian += orbits.moon.speed;
-  moon.position.x = earth.position.x + orbits.moon.radius * Math.cos(orbits.moon.radian);
-  moon.position.z = earth.position.z + orbits.moon.radius * Math.sin(orbits.moon.radian);
+  // 追尾処理
+  if (currentTarget) {
+    const orbit = Object.values(orbits).find((o) => eval(o.name) === currentTarget);
+    followPlanet(currentTarget, orbit);
+  }
 
   controls.update();
   renderer.render(scene, camera);
-}
-
-// 公転を更新する関数
-function updateOrbit(planet, name) {
-  const orbit = orbits[name];
-  orbit.radian += orbit.speed;
-  planet.position.x = orbit.radius * Math.cos(orbit.radian);
-  planet.position.z = orbit.radius * Math.sin(orbit.radian);
 }
 
 // メッシュを作成する関数
@@ -147,13 +198,12 @@ function createSaturnRings(innerRadius, outerRadius, texturePath) {
 
   const ringMaterial = new THREE.MeshBasicMaterial({
     map: ringTexture,
-    side: THREE.DoubleSide, // 両面を描画
-    transparent: true, // アルファチャンネルを考慮
+    side: THREE.DoubleSide,
+    transparent: true,
   });
 
   const ring = new THREE.Mesh(ringGeometry, ringMaterial);
 
-  // 初期回転を調整（リングが垂直ではなく横向きになるようにする）
   ring.rotation.x = Math.PI / 4;
 
   return ring;
