@@ -71,7 +71,12 @@ function init() {
   neptune = createMesh(9, './assets/neptune_tx.jpg');
   pluto = createMesh(2.5, './assets/pluto_tx.jpg');
 
-  scene.add(mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto);
+  scene.add(mercury, venus, earth, mars, jupiter, uranus, neptune, pluto);
+
+  // 土星の輪を作成して追加
+  const saturnRings = createSaturnRings(14, 18, './assets/saturn_ring.jpg');
+  saturn.add(saturnRings);
+  scene.add(saturn);
 
   // オービットコントロール
   controls = new OrbitControls(camera, renderer.domElement);
@@ -133,6 +138,25 @@ function createMesh(size, texturePath, isEmissive = false) {
 
   const material = new THREE.MeshPhongMaterial(materialOptions);
   return new THREE.Mesh(geometry, material);
+}
+
+// 土星の輪を作成する関数
+function createSaturnRings(innerRadius, outerRadius, texturePath) {
+  const ringGeometry = new THREE.RingGeometry(innerRadius, outerRadius, 64);
+  const ringTexture = new THREE.TextureLoader().load(texturePath);
+
+  const ringMaterial = new THREE.MeshBasicMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide, // 両面を描画
+    transparent: true, // アルファチャンネルを考慮
+  });
+
+  const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+
+  // 初期回転を調整（リングが垂直ではなく横向きになるようにする）
+  ring.rotation.x = Math.PI / 4;
+
+  return ring;
 }
 
 // ウィンドウリサイズ時の処理
