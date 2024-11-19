@@ -1,210 +1,147 @@
-// js/main.js
-
 // Three.js と OrbitControls をインポート
 import * as THREE from 'three';
 import { OrbitControls } from '../libs/OrbitControls.js';
 
 // ブラウザのサイズとアスペクト比を取得
-const W_WIDTH  = window.innerWidth;
+const W_WIDTH = window.innerWidth;
 const W_HEIGHT = window.innerHeight;
 const W_ASPECT = W_WIDTH / W_HEIGHT;
-const W_RATIO  = window.devicePixelRatio;
+const W_RATIO = window.devicePixelRatio;
 
 // 変数宣言
-let camera, scene, renderer, earth, moon, sun, mercury, venus;
-let controls;
+let camera, scene, renderer, controls;
+let sun, mercury, venus, earth, moon, mars, jupiter, saturn, uranus, neptune, pluto;
 
-// 水星の周回半径と角度
-const mercuryRadius = 150;
-let mercuryRadian = 0;
-
-// 金星の周回半径と角度
-const venusRadius = 170;
-let venusRadian = 0;
-
-// 地球の周回半径と角度
-const earthRadius = 200; // 地球の公転半径（太陽からの距離）
-let earthRadian = 0;
-
-// 月の周回半径と角度
-const moonRadius = 10; // 月の公転半径（地球からの距離）
-let moonRadian = 0;
+// 各惑星の周回半径と角度（公転速度も調整）
+const orbits = {
+  mercury: { radius: 200, radian: 0, speed: 0.04 },
+  venus: { radius: 250, radian: 0, speed: 0.03 },
+  earth: { radius: 300, radian: 0, speed: 0.02 },
+  moon: { radius: 20, radian: 0, speed: 0.1 },
+  mars: { radius: 350, radian: 0, speed: 0.015 },
+  jupiter: { radius: 450, radian: 0, speed: 0.01 },
+  saturn: { radius: 500, radian: 0, speed: 0.008 },
+  uranus: { radius: 550, radian: 0, speed: 0.007 },
+  neptune: { radius: 600, radian: 0, speed: 0.006 },
+  pluto: { radius: 650, radian: 0, speed: 0.005 },
+};
 
 // 初期化関数
 function init() {
-    // カメラを作成
-    camera = new THREE.PerspectiveCamera(50, W_ASPECT, 1, 3000);
-    camera.position.set(earthRadius + 800, 600, 800); // カメラ位置を再調整
-    camera.lookAt(0, 0, 0);
+  // カメラを作成
+  camera = new THREE.PerspectiveCamera(50, W_ASPECT, 1, 3000);
+  camera.position.set(800, 600, 800);
+  camera.lookAt(0, 0, 0);
 
-    // シーンを作成
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x000000); // 背景色を黒に設定
+  // シーンを作成
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
 
-    // 環境光を追加
-    const ambLight = new THREE.AmbientLight(0x999999); // 環境光の色を明るく
-    scene.add(ambLight);
+  // 環境光と太陽光
+  const ambLight = new THREE.AmbientLight(0x999999, 1.5);
+  scene.add(ambLight);
 
-    // 太陽からの光を表現する PointLight を作成
-    const sunLight = new THREE.PointLight(0xffffff, 30, 0, 2); // 強度を20から30に増加
-    sunLight.position.set(0, 0, 0); // 太陽の位置に光を配置
-    scene.add(sunLight);
+  const sunLight = new THREE.PointLight(0xffffff, 2, 0, 2);
+  sunLight.position.set(0, 0, 0);
+  scene.add(sunLight);
 
-    // ライトヘルパーを追加
-    const lightHelper = new THREE.PointLightHelper(sunLight, 100); // サイズを100に設定
-    scene.add(lightHelper);
+  // レンダラーを作成
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(W_RATIO);
+  renderer.setSize(W_WIDTH, W_HEIGHT);
+  renderer.shadowMap.enabled = true;
 
-    // ディレクショナルライトを一時的にコメントアウト
-    // const directionalLight = new THREE.DirectionalLight(0xffffff, 3); // 強度を3に設定
-    // directionalLight.position.set(earthRadius, 300, 150); // 光の位置を調整
-    // scene.add(directionalLight);
+  // HTMLのdivにレンダラーを追加
+  const div = document.getElementById('three');
+  div.appendChild(renderer.domElement);
 
-    // ディレクショナルライトヘルパーを一時的にコメントアウト
-    // const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 100);
-    // scene.add(directionalLightHelper);
+  // 太陽を作成
+  sun = createMesh(100, './assets/sun_tx.jpg', true);
+  scene.add(sun);
 
-    // レンダラーを作成
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(W_RATIO); // ピクセル比の設定
-    renderer.setSize(W_WIDTH, W_HEIGHT); // サイズの設定
-    renderer.shadowMap.enabled = true; // シャドウマッピングを有効化
+  // 惑星を作成
+  mercury = createMesh(3, './assets/mercury_tx.jpg');
+  venus = createMesh(6, './assets/venus_tx.jpg');
+  earth = createMesh(6.5, './assets/earth_tx.jpg');
+  moon = createMesh(1.5, './assets/moonmap1k.jpg');
+  mars = createMesh(4, './assets/mars_tk.jpg');
+  jupiter = createMesh(14, './assets/jupiter_tx.jpg');
+  saturn = createMesh(12, './assets/saturn_tx.jpg');
+  uranus = createMesh(9, './assets/uranus_tx.jpg');
+  neptune = createMesh(9, './assets/neptune_tx.jpg');
+  pluto = createMesh(2.5, './assets/pluto_tx.jpg');
 
-    // HTMLのdivにレンダラーを追加
-    const div = document.getElementById("three");
-    div.appendChild(renderer.domElement);
+  scene.add(mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, pluto);
 
-    // 太陽を作成
-    sun = createMesh(100, "./assets/sun_tx.jpg", true); // 太陽用に emissive を有効化
-    sun.castShadow = true;
-    scene.add(sun);
+  // オービットコントロール
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
 
-    // 水星を作成
-    mercury = createMesh(20, "./assets/mercury_tx.jpg");
-    mercury.castShadow = true;
-    scene.add(mercury);
-
-    // 金星を作成
-    venus = createMesh(8, "./assets/venus_tx.jpg");
-    venus.castShadow = true;
-    scene.add(venus);
-
-    // 地球を作成
-    earth = createMesh(9, "./assets/earth_tx.jpg");
-    earth.castShadow = true;
-    earth.receiveShadow = true;
-    scene.add(earth);
-
-    // 月を作成
-    moon = createMesh(2, "./assets/moonmap1k.jpg");
-    moon.castShadow = true;
-    moon.receiveShadow = true;
-    scene.add(moon);
-
-    // AxesHelper を追加
-    // const axesHelper = new THREE.AxesHelper(1000);
-    // scene.add(axesHelper);
-
-    // 星空の作成（オプション）
-    const starGeometry = new THREE.SphereGeometry(5000, 64, 64);
-    const starTexture = new THREE.TextureLoader().load('./assets/starfield.jpg'); // 星空のテクスチャ
-    const starMaterial = new THREE.MeshBasicMaterial({
-        map: starTexture,
-        side: THREE.BackSide, // 内側に面を表示
-    });
-    const starMesh = new THREE.Mesh(starGeometry, starMaterial);
-    scene.add(starMesh);
-
-    // オービットコントロールを初期化
-    controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; // スムーズな動きを有効化
-    controls.dampingFactor = 0.05;
-
-    // ウィンドウリサイズ時の処理
-    window.addEventListener('resize', onWindowResize, false);
+  // ウィンドウリサイズ時の処理
+  window.addEventListener('resize', onWindowResize, false);
 }
 
 // アニメーションループ
 function animate() {
-    requestAnimationFrame(animate);
+  requestAnimationFrame(animate);
 
-    // 水星を自転させる
-    mercury.rotation.y += 0.005;
+  // 公転処理
+  updateOrbit(mercury, 'mercury');
+  updateOrbit(venus, 'venus');
+  updateOrbit(earth, 'earth');
+  updateOrbit(mars, 'mars');
+  updateOrbit(jupiter, 'jupiter');
+  updateOrbit(saturn, 'saturn');
+  updateOrbit(uranus, 'uranus');
+  updateOrbit(neptune, 'neptune');
+  updateOrbit(pluto, 'pluto');
 
-    // 水星を太陽の周りに公転させる
-    mercuryRadian += 0.005;
-    mercury.position.x = mercuryRadius * Math.cos(mercuryRadian);
-    mercury.position.z = mercuryRadius * Math.sin(mercuryRadian);
+  // 月の公転処理（地球の周り）
+  orbits.moon.radian += orbits.moon.speed;
+  moon.position.x = earth.position.x + orbits.moon.radius * Math.cos(orbits.moon.radian);
+  moon.position.z = earth.position.z + orbits.moon.radius * Math.sin(orbits.moon.radian);
 
-    // 金星を自転させる
-    venus.rotation.y += 0.005;
+  controls.update();
+  renderer.render(scene, camera);
+}
 
-    // 金星を太陽の周りに公転させる
-    venusRadian += 0.005;
-    venus.position.x = venusRadius * Math.cos(venusRadian);
-    venus.position.z = venusRadius * Math.sin(venusRadian);
-
-    // 地球を自転させる
-    earth.rotation.y += 0.001;
-
-    // 地球を太陽の周りに公転させる
-    earthRadian += 0.001; // 公転速度
-    earth.position.x = earthRadius * Math.cos(earthRadian);
-    earth.position.z = earthRadius * Math.sin(earthRadian);
-
-    // 月を自転させる
-    moon.rotation.y += 0.005;
-
-    // 月を地球の周りに公転させる
-    moonRadian += 0.01; // 公転速度
-    moon.position.x = earth.position.x + moonRadius * Math.cos(moonRadian);
-    moon.position.z = earth.position.z + moonRadius * Math.sin(moonRadian);
-
-    // オービットコントロールの更新
-    controls.update();
-
-    // シーンをレンダリング
-    renderer.render(scene, camera);
+// 公転を更新する関数
+function updateOrbit(planet, name) {
+  const orbit = orbits[name];
+  orbit.radian += orbit.speed;
+  planet.position.x = orbit.radius * Math.cos(orbit.radian);
+  planet.position.z = orbit.radius * Math.sin(orbit.radian);
 }
 
 // メッシュを作成する関数
-function createMesh(r, path, isEmissive = false) {
-    const txLoader = new THREE.TextureLoader();
-    const texture = txLoader.load(path, undefined, undefined, (err) => {
-        console.error('テクスチャの読み込みに失敗しました:', err);
-    });
+function createMesh(size, texturePath, isEmissive = false) {
+  const txLoader = new THREE.TextureLoader();
+  const texture = txLoader.load(texturePath);
 
-    const geometry = new THREE.SphereGeometry(r, 30, 30);
+  const geometry = new THREE.SphereGeometry(size, 30, 30);
+  const materialOptions = {
+    map: texture,
+    shininess: 100,
+    specular: new THREE.Color(0xaaaaaa),
+  };
 
-    const materialOptions = {
-        color: 0xffffff,
-        map: texture,
-        shininess: 100, // 光沢の強さを増加
-        specular: new THREE.Color(0xaaaaaa), // スペキュラカラーを設定
-    };
+  if (isEmissive) {
+    materialOptions.emissive = new THREE.Color(0xffffff);
+    materialOptions.emissiveIntensity = 2;
+  }
 
-    // if (isEmissive) {
-    //     materialOptions.emissive = new THREE.Color(0xffffff);
-    //     materialOptions.emissiveIntensity = 1;
-    // }
-
-    const material = new THREE.MeshPhongMaterial(materialOptions);
-
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = isEmissive; // 太陽のみシャドウを投げる
-    mesh.receiveShadow = false;
-    return mesh;
+  const material = new THREE.MeshPhongMaterial(materialOptions);
+  return new THREE.Mesh(geometry, material);
 }
 
 // ウィンドウリサイズ時の処理
 function onWindowResize() {
-    const newWidth = window.innerWidth;
-    const newHeight = window.innerHeight;
-    const newAspect = newWidth / newHeight;
-
-    camera.aspect = newAspect;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(newWidth, newHeight);
+  const newWidth = window.innerWidth;
+  const newHeight = window.innerHeight;
+  camera.aspect = newWidth / newHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(newWidth, newHeight);
 }
 
 // 初期化とアニメーション開始
